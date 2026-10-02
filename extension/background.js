@@ -40,7 +40,8 @@ async function classify(text, fromEmail) {
 
   // Known bulk sender with a fixed action: no need to ask Jev.
   if (rule && rule.action && T.byKey(t.actions, rule.action) && T.byKey(t.topics, rule.topic)) {
-    return { action: rule.action, topic: rule.topic, urgency: 1, review: false, mustSee: !!rule.mustSee, source: 'rule' };
+    const ignoredRule = (t.ignoreActions || []).includes(rule.action);
+    return { action: rule.action, topic: rule.topic, urgency: 1, review: false, mustSee: !!rule.mustSee && !ignoredRule, source: 'rule' };
   }
 
   const { jevKey } = await chrome.storage.local.get('jevKey');
@@ -64,8 +65,10 @@ async function classify(text, fromEmail) {
   if (action === 'low' && T.byKey(t.actions, 'reply') && a.is_personal && a.is_personal.noul > 0.8) action = 'reply';
   const personal = a.is_personal ? Number(a.is_personal.noul) : 0;
   const ignored = (t.ignoreActions || []).includes(action);
-  const mustSee = !!(rule && rule.mustSee) ||
-    (!ignored && (action === 'reply' || action === 'action' || urgency >= 4 || personal > 0.8));
+  // Low, Junk and Archive are never Must See, even from a Must See sender (a verification code
+  // from your work address, a mass mailing from a recruiter).
+  const mustSee = !ignored && (!!(rule && rule.mustSee) ||
+    action === 'reply' || action === 'action' || urgency >= 4 || personal > 0.8);
   return { action, topic, urgency, mustSee, review: probs.length > 1 && probs[0] - probs[1] < LOW_CONF_GAP, source: 'jev' };
 }
 
