@@ -12,7 +12,7 @@
 
   const SCOPES = {
     inbox: { name: 'Inbox', query: 'in:inbox' },
-    all: { name: 'All mail', query: '-in:spam -in:trash -in:chats' },
+    all: { name: 'All mail', query: '-in:spam -in:trash' },
     view: { name: 'Current page only', query: null },
   };
 

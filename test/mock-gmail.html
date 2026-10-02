@@ -15,6 +15,7 @@
                 ?existing=Label1,Label2  labels that already exist
                 ?pagesize=N  rows per page (Gmail shows 50); "#search/…/p2" opens page 2
                 ?lag=N  sorted emails keep showing in "not yet sorted" for N more reloads (search index lag)
+                ?chattab=1  searches open on Gmail's Chat "Conversations" tab until "Mail" is clicked
   If Gmail changes and the extension breaks, update this file to match the new page, then fix SEL.
 -->
 <style>
@@ -45,6 +46,7 @@
   <div role="button" aria-label="Move to" id="mv">Move to</div>
   <div role="button" aria-label="Labels" id="lb">Labels</div>
 </div>
+<div id="tabs"><div role="tab" id="tab-mail">Mail</div> <div role="tab" id="tab-conv">Conversations</div></div>
 <div role="main"><table><tbody id="tb"></tbody></table><div id="empty"></div></div>
 <script>
 const MAIL = [
@@ -66,6 +68,7 @@ const EXISTING = new Set((params.get('existing') || 'Jev/5-Low,Topic/Shopping').
 const OOPS_AT = Number(params.get('oops') || 0);
 const PAGE_SIZE = Number(params.get('pagesize') || 50);
 const LAG = Number(params.get('lag') || 0);
+let chatTab = params.get('chattab') === '1';
 let reloads = 0; const sortedAt = {};
 const applied = {}; window.__applied = applied; window.__created = []; window.__archived = [];
 let labelChanges = 0;
@@ -75,6 +78,11 @@ const unsortedOnly = () => decodeURIComponent(location.hash).includes('-label:je
 
 function render() {
   const tb = document.getElementById('tb'); tb.innerHTML = '';
+  const isSearch = location.hash.startsWith('#search');
+  document.getElementById('tab-mail').setAttribute('aria-selected', String(!(chatTab && isSearch)));
+  document.getElementById('tab-conv').setAttribute('aria-selected', String(chatTab && isSearch));
+  if (chatTab && isSearch) { document.querySelector('div[role=main]').style.display = 'none'; return; }
+  document.querySelector('div[role=main]').style.display = '';
   reloads++;
   const hidden = id => (applied[id] || []).some(isAction) && sortedAt[id] !== undefined && reloads - sortedAt[id] > LAG;
   const all = MAIL.filter(m => !window.__archived.includes(m.id) && !(unsortedOnly() && hidden(m.id)));
@@ -95,6 +103,7 @@ function render() {
   syncButtons();
 }
 window.addEventListener('hashchange', () => setTimeout(render, 200));
+document.getElementById('tab-mail').onclick = () => { chatTab = false; render(); };
 
 const selected = () => [...document.querySelectorAll('tr.zA')]
   .filter(r => r.querySelector('[role=checkbox]').getAttribute('aria-checked') === 'true')

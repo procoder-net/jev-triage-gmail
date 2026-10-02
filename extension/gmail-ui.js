@@ -322,14 +322,24 @@
 
   function goToSearch(query, page = 1) {
     // A harmless alternating term forces Gmail to re-run the search (so labelled threads drop out).
+    // Never use chat terms (in:chats): Gmail then opens its Chat "Conversations" tab instead of Mail.
     root.__jevFlip = !root.__jevFlip;
-    const q = query + (root.__jevFlip ? ' -in:chats' : ' -in:spam');
+    const q = query + (root.__jevFlip ? ' -in:trash' : ' -in:spam');
     location.hash = '#search/' + encodeURIComponent(q).replace(/%20/g, '+') + (page > 1 ? '/p' + page : '');
+  }
+
+  /** Search results can open on Gmail's Chat tabs ("Conversations", "Spaces"): switch to "Mail". */
+  function mailTab() {
+    return [...document.querySelectorAll('[role="tab"], [role="button"], button')].find(el =>
+      visible(el) && /^mail$/i.test((el.innerText || '').trim()) &&
+      (el.getAttribute('aria-selected') === 'false' || el.getAttribute('aria-pressed') === 'false')) || null;
   }
 
   async function waitForList() {
     await sleep(600);
     return waitFor(() => {
+      const tab = mailTab();
+      if (tab) { realClick(tab); return null; }
       const main = mainArea();
       if (!main) return null;
       if (listRows().length) return 'rows';

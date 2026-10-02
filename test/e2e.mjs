@@ -90,8 +90,8 @@ try {
   await shot(page, '03-learn.png');
   await page.click('#jev-save-rules');
 
-  // Sort all mail, 5 rows per page and a lagging search index, to exercise paging and resume.
-  await page.goto('https://mail.google.com/mail/u/0/?existing=Jev/5-Low,Topic/Shopping&pagesize=5&lag=1#inbox');
+  // Sort all mail, 5 rows per page, a lagging search index, and search opening on the Chat tab.
+  await page.goto('https://mail.google.com/mail/u/0/?existing=Jev/5-Low,Topic/Shopping&pagesize=5&lag=1&chattab=1#inbox');
   await page.waitForSelector('#jev-pill');
   await page.click('#jev-pill');
   expect(await page.$eval('#jev-scope', s => s.value) === 'all', 'All mail is the default scope');
