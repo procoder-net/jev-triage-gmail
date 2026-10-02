@@ -15,7 +15,7 @@ A Chrome extension that sorts your Gmail **inside the tab you already have open*
 
 | Kind | Labels |
 |---|---|
-| What to do (one) | `Jev/1-Reply` · `Jev/2-Action` · `Jev/3-Read` · `Jev/4-FYI` · `Jev/5-Low` · `Jev/6-Junk` |
+| What to do (one) | `Jev/1-Reply` · `Jev/2-Action` · `Jev/3-Read` · `Jev/4-FYI` · `Jev/5-Low` · `Jev/6-Junk` · `Jev/7-Archive` (kept for reference) |
 | What it's about (one) | `Topic/Personal` · `Kids` · `Work` · `Career` · `Finance` · `Shopping` · `Security` · `News` · `Community` · `Health` · `Home` · `Other` |
 | Flags (optional) | `Jev/0-Must-See` · `Jev/Urgent` · `Jev/Review` (Jev was unsure) |
 
@@ -90,7 +90,7 @@ Gmail ⚙ → **See all settings** → **Inbox** → Inbox type **Multiple inbox
 Gmail tab (content.js + gmail-ui.js)         background.js                 api.typesafe.ai
   read row: sender, subject, preview  ──►  sender rule? use it        ──►  Jev: action, topic,
   tick it, Labels menu, Apply         ◄──  else ask Jev, add Must See  ◄──  urgency, is_personal
-  action label last (it hides the row), Low/Junk via "Move to" (label + archive)
+  action label last (it hides the row), Low/Junk/Archive via "Move to" (label + archive)
 ```
 
 | File | Job |

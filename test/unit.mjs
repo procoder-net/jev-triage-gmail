@@ -20,7 +20,7 @@ test('label names avoid characters Gmail search trips on', () => {
   for (const x of [...T.DEFAULTS.actions, ...T.DEFAULTS.topics, ...t.actions, ...t.topics]) assert.ok(!/[&"<>]/.test(x.label), x.label);
 });
 test('unsorted query excludes every action label', () => {
-  assert.equal(T.unsortedQuery(T.DEFAULTS), '-label:jev-1-reply -label:jev-2-action -label:jev-3-read -label:jev-4-fyi -label:jev-5-low -label:jev-6-junk');
+  assert.equal(T.unsortedQuery(T.DEFAULTS), '-label:jev-1-reply -label:jev-2-action -label:jev-3-read -label:jev-4-fyi -label:jev-5-low -label:jev-6-junk -label:jev-7-archive');
 });
 test('sender key groups company subdomains, keeps personal addresses', () => {
   assert.equal(T.senderKey('offers@news.shopmart.example'), 'shopmart.example');

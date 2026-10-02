@@ -62,7 +62,7 @@ Return ONLY valid JSON in exactly this shape:
     "urgentLabel": "Jev/Urgent",
     "reviewLabel": "Jev/Review",
     "mustSeeLabel": "Jev/0-Must-See",
-    "ignoreActions": ["low", "junk"],
+    "ignoreActions": ["low", "junk", "archive"],
     "archiveIgnored": true,
     "actions": [ { "key": "reply", "label": "Jev/1-Reply", "desc": "..." }, ... ],
     "topics":  [ { "key": "work",  "label": "Topic/Work",  "desc": "..." }, ... ],
@@ -71,7 +71,8 @@ Return ONLY valid JSON in exactly this shape:
 }
 
 Rules for the file:
-- Keep these 6 actions and keys: reply, action, read, fyi, low, junk (labels Jev/1-Reply ... Jev/6-Junk).
+- Keep these 7 actions and keys: reply, action, read, fyi, low, junk, archive (labels Jev/1-Reply ... Jev/7-Archive).
+  "archive" is for records I'll want later (receipts, tax forms, warranties, confirmations): out of the inbox, kept.
   Rewrite their "desc" to fit me.
 - Create 8 to 14 topics that fit my life. "key" is short lowercase, "label" starts with "Topic/",
   no "&", quotes or angle brackets. Always include a final "other" topic.
@@ -79,7 +80,7 @@ Rules for the file:
   and what does NOT belong if it could be confused with another label.
 - "rules": one per sender I list below. "match" is a domain (company) or a full address (person).
   "topic" must be one of the topic keys. Add "action" only when every email from that sender gets
-  the same treatment (for example newsletters → "read", stores and promos → "low").
+  the same treatment (for example newsletters → "read", stores and promos → "low", receipts and statements to keep → "archive").
   Add "mustSee": true only for people and organisations I must never miss.
 
 About me:

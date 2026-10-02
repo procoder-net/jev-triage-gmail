@@ -11,9 +11,9 @@
     // Must See: the few emails worth your time. Added when a real person wrote to you, something
     // needs doing, it's urgent, or a sender rule says so. Pair with Gmail's Multiple Inboxes.
     mustSeeLabel: 'Jev/0-Must-See',
-    // Aggressive ignore: emails with these actions are labelled AND taken out of the inbox
-    // (archived, never deleted; still in All Mail under their label).
-    ignoreActions: ['low', 'junk'],
+    // Out of the inbox: emails with these actions are labelled AND archived (never deleted;
+    // still in All Mail under their label). 'archive' keeps records for future reference.
+    ignoreActions: ['low', 'junk', 'archive'],
     archiveIgnored: true,
 
     // What to do with the email (exactly one per email).
@@ -22,8 +22,9 @@
       { key: 'action', label: 'Jev/2-Action', desc: 'No reply needed, but I must DO something: pay or check a bill, sign up or RSVP, fill a form, verify or secure an account I did not expect, act on a deadline.' },
       { key: 'read',   label: 'Jev/3-Read',   desc: 'Articles and newsletters I subscribed to and may want to read later. Not summaries of my own accounts. No action needed.' },
       { key: 'fyi',    label: 'Jev/4-FYI',    desc: 'Automated confirmation or status about my own accounts: receipts, order and delivery updates, refunds, routine sign-in notices I triggered, one-time codes, statements with nothing due, autopay confirmations, daily or weekly summaries.' },
-      { key: 'low',    label: 'Jev/5-Low',    desc: 'Marketing and bulk mail: sales, discounts, coupons, product pitches, job-alert digests, event invitations sent to a list, community posts and digests, cold sales or recruiter outreach I did not ask for.' },
+      { key: 'low',    label: 'Jev/5-Low',    desc: 'Marketing and bulk mail: sales, discounts, coupons, product pitches, job-alert digests, event invitations sent to a list, community posts and digests, cold sales pitches.' },
       { key: 'junk',   label: 'Jev/6-Junk',   desc: 'Scam, phishing, fake invoice, fake registration, or junk with no legitimate purpose.' },
+      { key: 'archive', label: 'Jev/7-Archive', desc: 'Records to keep for future reference, nothing to do now: tax forms, invoices and receipts for services, warranties and protection plans, contracts and terms I agreed to, booking or registration confirmations, school or medical documents.' },
     ],
 
     // What the email is about (exactly one per email).

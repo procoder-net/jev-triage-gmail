@@ -145,6 +145,16 @@
       || (items.length === 1 ? items[0] : null);        // the filter narrowed it to one label
   }
 
+  // Labels confirmed to exist in this Gmail account (saves a menu round-trip per email).
+  const knownLabels = new Set();
+
+  /** Type a label name into an open label menu and wait for Gmail to filter the list. */
+  async function searchLabel(menu, name, timeout = 1200) {
+    typeInto(menu.querySelector(SEL.menuInput), name);
+    await sleep(150);                                       // let the old (unfiltered) list go away
+    return waitFor(() => findLabelItem(menu, name), timeout, 50);
+  }
+
   /** Gmail's "Oops, something went wrong" box. Returns true if it was showing (and clicks OK). */
   function dismissGmailError() {
     const dlg = [...document.querySelectorAll('div[role="alertdialog"], div[role="dialog"]')]
@@ -198,15 +208,17 @@
    *   3) tick every existing label and Apply in one go, 4) create the action label last if missing.
    */
   async function applyLabels(names, actionLabel, opts = {}) {
-    // 1) Which labels already exist?
-    let menu = await openLabelsMenu();
+    // 1) Which labels already exist? Only ask Gmail about labels we haven't seen yet this session.
+    let menu;
     const missing = [];
-    for (const name of names) {
-      typeInto(menu.querySelector(SEL.menuInput), name);
-      await sleep(400);
-      if (!findLabelItem(menu, name)) missing.push(name);
+    const unknown = names.filter(n => !knownLabels.has(n));
+    if (unknown.length) {
+      menu = await openLabelsMenu();
+      for (const name of unknown) {
+        if (await searchLabel(menu, name)) knownLabels.add(name); else missing.push(name);
+      }
+      await closeLabelsMenu(menu, false);
     }
-    await closeLabelsMenu(menu, false);
 
     // 2) Create missing labels other than the action label. If Gmail won't create one,
     //    skip just that label and keep going (the action label is what matters for progress).
@@ -222,13 +234,17 @@
     if (existing.length) {
       menu = await openLabelsMenu();
       let ticked = 0;
+      const vanished = [];
       for (const name of existing) {
-        typeInto(menu.querySelector(SEL.menuInput), name);
-        await sleep(400);
-        const hit = findLabelItem(menu, name);
-        if (hit && hit.getAttribute('aria-checked') !== 'true') { realClick(hit); ticked++; await sleep(200); }
+        const hit = await searchLabel(menu, name);
+        if (!hit) { vanished.push(name); continue; }       // was deleted since we cached it
+        if (hit.getAttribute('aria-checked') !== 'true') { realClick(hit); ticked++; await sleep(150); }
       }
       await closeLabelsMenu(menu, ticked > 0);
+      for (const name of vanished) {
+        knownLabels.delete(name);
+        try { await createAndApply(name); } catch (e) { skipped.push(name); }
+      }
     }
 
     // 4) Action label goes last. With archive on, use Gmail's "Move to" so it leaves the inbox too.
@@ -237,8 +253,7 @@
       archived = await moveTo(actionLabel).catch(() => false);
       if (!archived) {                                      // no "Move to" button: just label it
         if (missing.includes(actionLabel)) await createAndApply(actionLabel);
-        else { const m = await openLabelsMenu(); typeInto(m.querySelector(SEL.menuInput), actionLabel); await sleep(400);
-               const hit = findLabelItem(m, actionLabel); if (hit) realClick(hit); await closeLabelsMenu(m, !!hit); }
+        else { const m = await openLabelsMenu(); const hit = await searchLabel(m, actionLabel); if (hit) realClick(hit); await closeLabelsMenu(m, !!hit); }
       }
     } else if (missing.includes(actionLabel)) {
       await createAndApply(actionLabel);
@@ -253,9 +268,7 @@
     realClick(btn);
     const menu = await waitFor(openMenu, 4000);
     if (!menu) return false;
-    typeInto(menu.querySelector(SEL.menuInput), name);
-    await sleep(500);
-    let item = findLabelItem(menu, name);
+    let item = await searchLabel(menu, name, 1000);
     if (!item) {                                            // label doesn't exist yet: Move to → Create new
       item = [...menu.querySelectorAll(SEL.menuItem)].find(i => visible(i) && /create new/i.test(i.innerText));
       if (!item) { await closeLabelsMenu(menu, false).catch(() => {}); return false; }
@@ -265,8 +278,10 @@
       if (!ok) return false;
       realClick(ok);
       await settle(1500);
+      knownLabels.add(name);
       return true;
     }
+    knownLabels.add(name);
     realClick(item);
     await waitFor(() => !openMenu(), 3000);
     await settle(900);
@@ -276,10 +291,9 @@
   /** Gmail's "Create new" in the Labels menu: creates the label and applies it to the selection. */
   async function createAndApply(name) {
     const menu = await openLabelsMenu();
-    typeInto(menu.querySelector(SEL.menuInput), name);
-    await sleep(600);
-    const existing = findLabelItem(menu, name);
-    if (existing) {                                           // appeared after all: tick and apply
+    const existing = await searchLabel(menu, name, 1000);
+    if (existing) {
+      knownLabels.add(name);                                           // appeared after all: tick and apply
       if (existing.getAttribute('aria-checked') !== 'true') realClick(existing);
       await sleep(200);
       await closeLabelsMenu(menu, true);
@@ -303,6 +317,7 @@
     realClick(ok);
     await waitFor(() => ![...document.querySelectorAll(SEL.dialogButton)].some(isCreate), 4000);
     await settle(1500);
+    knownLabels.add(name);
   }
 
   function goToSearch(query, page = 1) {
@@ -343,5 +358,10 @@
     };
   }
 
-  root.JevGmailUI = { SEL, sleep, settle, dismissGmailError, listRows, readRow, readFullBody, findRowById, setSelected, applyLabels, goToSearch, waitForList, myEmail, diagnose };
+  /** Untick every row in the list. */
+  async function clearSelection() {
+    for (const row of listRows()) if (isChecked(row)) await setSelected(row, false).catch(() => {});
+  }
+
+  root.JevGmailUI = { SEL, sleep, settle, clearSelection, dismissGmailError, listRows, readRow, readFullBody, findRowById, setSelected, applyLabels, goToSearch, waitForList, myEmail, diagnose };
 })(window);

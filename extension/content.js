@@ -86,9 +86,9 @@
       : '';
   }
 
-  async function addStats(labels) {
+  async function addStats(labels, count = 1) {
     const { jevStats = { sorted: 0, byLabel: {} } } = await chrome.storage.local.get('jevStats');
-    jevStats.sorted++;
+    jevStats.sorted += count;
     for (const l of labels) jevStats.byLabel[l] = (jevStats.byLabel[l] || 0) + 1;
     await chrome.storage.local.set({ jevStats });
     refreshCounts();
@@ -116,12 +116,26 @@
     throw new Error('Jev kept rate-limiting. Try again later.');
   }
 
-  async function handle(r, opts) {
-    let body = '';
-    if (opts.deep) {
-      const row = UI.findRowById(r.id);
-      if (row) body = await UI.readFullBody(row);
+  const JEV_PARALLEL = 4;     // Jev calls in flight at once
+  const BATCH = 25;           // emails classified before labelling them as groups
+
+  /** Run fn over items, at most n at a time. Returns [{ok, value|error}] in input order. */
+  async function pool(items, n, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    async function worker() {
+      while (next < items.length && running) {
+        const i = next++;
+        try { out[i] = { ok: true, value: await fn(items[i], i) }; }
+        catch (e) { out[i] = { ok: false, error: e }; }
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+    return out;
+  }
+
+  /** Ask Jev (or a sender rule) about one email and work out its labels. No clicking. */
+  async function plan(r, body) {
     const res = await askJev(r, body);
     const action = actLabel(res.action);
     const labels = [topLabel(res.topic)];
@@ -130,19 +144,20 @@
     if (res.mustSee && tax.mustSeeLabel) labels.unshift(tax.mustSeeLabel);
     const archive = !!tax.archiveIgnored && (tax.ignoreActions || []).includes(res.action) && !res.mustSee;
     labels.push(action);                                    // action label last (see gmail-ui.js)
+    return { r, res, labels, action, archive, key: labels.join('|') + (archive ? '|archive' : '') };
+  }
 
-    if (!opts.preview) {
-      const row = UI.findRowById(r.id);
-      if (!row) throw new Error('Lost track of the email row (did the page change?).');
-      await UI.setSelected(row, true);
-      const applied = await UI.applyLabels(labels, action, { archive });
-      res.skipped = (applied && applied.skipped) || [];
-      res.archived = !!(applied && applied.archived);
-      const again = UI.findRowById(r.id);
-      if (again) await UI.setSelected(again, false).catch(() => {});
-      await addStats([action, labels[0]]);
-    }
-    logItem(r, res, !opts.preview);
+  /** Label every email in a group (same labels) with one pass through Gmail's menus. */
+  async function applyGroup(group) {
+    await UI.clearSelection();
+    const rows = group.map(p => UI.findRowById(p.r.id)).filter(Boolean);
+    if (!rows.length) throw new Error('Lost track of the email rows (did the page change?).');
+    for (const row of rows) await UI.setSelected(row, true);
+    const { labels, action, archive } = group[0];
+    const applied = await UI.applyLabels(labels, action, { archive });
+    await UI.clearSelection();
+    const found = new Set(rows.map(row => UI.readRow(row).id));
+    return { applied, found };
   }
 
   // ---------- the loop ----------
@@ -194,26 +209,73 @@
           continue;
         }
         idleReloads = 0; advancedPastSorted = false;
-        for (const r of rows) {
+        const batch = rows.slice(0, opts.preview ? 10 - handled : BATCH);
+
+        // 1) Full text (optional, needs the page, so one at a time), then Jev in parallel.
+        const bodies = new Map();
+        if (opts.deep) for (const r of batch) {
           if (!running) break;
-          status(`(${handled + 1}) ${r.subject.slice(0, 60)}`);
+          status(`Reading ${bodies.size + 1}/${batch.length}: ${r.subject.slice(0, 50)}`);
+          const row = UI.findRowById(r.id);
+          bodies.set(r.id, row ? await UI.readFullBody(row).catch(() => '') : '');
+        }
+        let asked = 0;
+        status(`Asking Jev about ${batch.length} emails… (${handled} sorted so far)`);
+        const results = await pool(batch, JEV_PARALLEL, async r => {
+          const p = await plan(r, bodies.get(r.id));
+          status(`Jev answered ${++asked}/${batch.length}… (${handled} sorted so far)`);
+          return p;
+        });
+        if (!running) break;
+        const plans = [];
+        results.forEach((x, i) => {
+          if (!x) return;
+          if (x.ok) plans.push(x.value);
+          else { failed++; logSkip(batch[i], x.error.message); doneThisRun.add(batch[i].id); }
+        });
+        if (results.length && results.every(x => x && !x.ok)) {
+          failStreak++;
+          if (failStreak >= 5) throw new Error('Jev failed 5 times in a row. Last error: ' + results[0].error.message);
+          await UI.sleep(3000);
+        }
+
+        if (opts.preview) {
+          for (const p of plans) { logItem(p.r, p.res, false); handled++; }
+          running = false; status('Preview of 10 done. Untick "Preview only" to label.');
+          break;
+        }
+
+        // 2) Group emails that get exactly the same labels and label each group in one go.
+        const groups = new Map();
+        for (const p of plans) (groups.get(p.key) || groups.set(p.key, []).get(p.key)).push(p);
+        let g = 0;
+        for (const group of groups.values()) {
+          if (!running) break;
+          g++;
+          status(`Labelling group ${g}/${groups.size}: ${group.length} × ${group[0].action.split('/').pop()} (${handled} sorted so far)`);
           try {
-            await handle(r, opts);
+            const { applied, found } = await applyGroup(group);
             failStreak = 0;
+            for (const p of group) {
+              doneThisRun.add(p.r.id);
+              if (!found.has(p.r.id)) { failed++; logSkip(p.r, 'row was gone before labelling'); continue; }
+              p.res.skipped = (applied && applied.skipped) || [];
+              p.res.archived = !!(applied && applied.archived);
+              done.add(p.r.id); handled++;
+              logItem(p.r, p.res, true);
+            }
+            await addStats(group.filter(p => found.has(p.r.id)).flatMap(p => [p.action, p.labels[0]]), group.filter(p => found.has(p.r.id)).length);
+            await saveDone(done);
           } catch (e) {
-            // One bad email shouldn't end the run: dismiss Gmail's error, clear the selection, move on.
+            // One bad group shouldn't end the run: dismiss Gmail's error, clear the selection, move on.
             UI.dismissGmailError();
-            for (const row of UI.listRows()) await UI.setSelected(row, false).catch(() => {});
-            failed++; failStreak++;
-            logSkip(r, e.message);
-            if (failStreak >= 5) throw new Error('5 emails in a row failed. Last error: ' + e.message);
+            await UI.clearSelection();
+            failStreak++;
+            for (const p of group) { failed++; doneThisRun.add(p.r.id); logSkip(p.r, e.message); }
+            if (failStreak >= 5) throw new Error('5 label attempts in a row failed. Last error: ' + e.message);
             await UI.sleep(3000);
           }
-          doneThisRun.add(r.id);
-          if (failStreak === 0 && !opts.preview) { done.add(r.id); if (handled % 10 === 0) await saveDone(done); }
-          if (failStreak === 0) handled++;
-          if (opts.preview && handled >= 10) { running = false; status('Preview of 10 done. Untick "Preview only" to label.'); }
-          if (!(await UI.settle(1200))) { status('Gmail showed an error; pausing 10 s…'); await UI.sleep(10000); }
+          if (!(await UI.settle(800))) { status('Gmail showed an error; pausing 10 s…'); await UI.sleep(10000); }
         }
         if (!query || opts.preview) { if (running) status(`Done. ${handled} emails.`); break; }
       }
@@ -292,13 +354,15 @@
     try {
       status('Reading your inbox…');
       const rows = await collectInboxRows(max);
-      const results = [];
-      for (const r of rows) {
-        if (!running) break;
-        status(`Learning ${results.length + 1}/${rows.length}: ${r.subject.slice(0, 50)}`);
-        try { results.push({ r, res: await askJev(r, '') }); }
-        catch (e) { if (/API key/.test(e.message)) throw e; }   // one odd email shouldn't stop learning
-      }
+      let n = 0;
+      const answers = await pool(rows, JEV_PARALLEL, async r => {
+        const res = await askJev(r, '');
+        status(`Learning ${++n}/${rows.length}…`);
+        return { r, res };
+      });
+      const keyError = answers.find(x => x && !x.ok && /API key/.test(x.error.message));
+      if (keyError) throw keyError.error;
+      const results = answers.filter(x => x && x.ok).map(x => x.value);   // one odd email shouldn't stop learning
       suggestions = suggest(results);
       renderSuggestions();
       status(`Looked at ${results.length} emails. Review the suggestions, then Save. Nothing was labelled.`);

@@ -10,7 +10,7 @@
     • a "Labels" button and a "Move to" button that only show while a row is ticked
     • a role=menu with a search input; nested labels are listed by their last part ("Kids" for "Topic/Kids")
     • "Create new" → a dialog with a Create button
-    • searching for "not yet sorted" mail hides a row as soon as it gets an action label (Jev/1-…6-)
+    • searching for "not yet sorted" mail hides a row as soon as it gets an action label (Jev/1-…7-)
   URL options:  ?oops=N  shows Gmail's "Oops, something went wrong" on the Nth label change
                 ?existing=Label1,Label2  labels that already exist
                 ?pagesize=N  rows per page (Gmail shows 50); "#search/…/p2" opens page 2
@@ -70,7 +70,7 @@ let reloads = 0; const sortedAt = {};
 const applied = {}; window.__applied = applied; window.__created = []; window.__archived = [];
 let labelChanges = 0;
 
-const isAction = n => /^Jev\/[1-6]-/.test(n);
+const isAction = n => /^Jev\/[1-7]-/.test(n);
 const unsortedOnly = () => decodeURIComponent(location.hash).includes('-label:jev-1-reply');
 
 function render() {

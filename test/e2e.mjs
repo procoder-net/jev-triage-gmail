@@ -43,7 +43,8 @@ const shot = async (target, name) => SHOTS && target.screenshot({ path: path.joi
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-e2e-'));
 const ctx = await chromium.launchPersistentContext(profile, {
-  channel: 'chromium', headless: !process.env.HEADED, viewport: { width: 1280, height: 800 },
+  channel: 'chromium', headless: !process.env.HEADED,
+  ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), viewport: { width: 1280, height: 800 },
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 try {
