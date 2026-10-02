@@ -76,6 +76,10 @@ Gmail ⚙ → **See all settings** → **Inbox** → Inbox type **Multiple inbox
 - Section 2: `label:jev-1-reply OR label:jev-2-action` (name it **To do**)
 - Position: **Above the inbox**
 
+## Daily use and building good rules
+
+**[docs/USING.md](docs/USING.md)** covers the first run, a daily routine, how Jev decides and how to steer it, and **ready-to-paste prompts for filling in your rules with an AI assistant** (describe yourself, get a starter settings file to import).
+
 ## Settings you can share
 
 **Options → Export settings** saves your categories and rules to a JSON file. **Import settings** loads one. API keys are never exported. Start from [`examples/jev-settings-example.json`](examples/jev-settings-example.json), a fictional setup that shows every kind of rule.
