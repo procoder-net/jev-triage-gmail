@@ -32,8 +32,8 @@
     <div class="jev-head"><b>Jev Triage</b><span id="jev-me"></span><button id="jev-close" title="Hide">✕</button></div>
     <div class="jev-body">
       <label>Emails <select id="jev-scope">
-        <option value="inbox">Inbox (not yet sorted)</option>
-        <option value="all">All mail (not yet sorted)</option>
+        <option value="all" selected>All mail (skips anything already sorted)</option>
+        <option value="inbox">Inbox only (skips anything already sorted)</option>
         <option value="view">Current page only</option>
       </select></label>
       <label class="jev-check"><input type="checkbox" id="jev-preview"> Preview only (don't add labels)</label>
@@ -146,55 +146,91 @@
   }
 
   // ---------- the loop ----------
+  // Thread ids this browser has already sorted. Gmail's search index can lag a few seconds
+  // behind a label change, so labelled emails may still show up briefly; this list stops us
+  // re-doing them. The label itself is the real record (the search skips labelled mail).
+  async function loadDone() {
+    const { jevDone = [] } = await chrome.storage.local.get('jevDone');
+    return new Set(jevDone);
+  }
+  async function saveDone(done) {
+    const list = [...done];
+    await chrome.storage.local.set({ jevDone: list.slice(-50000) });
+  }
+
   async function run() {
     tax = await T.load();
     const scope = SCOPES[$('jev-scope').value];
     const opts = { preview: $('jev-preview').checked, deep: $('jev-deep').checked };
+    const done = opts.preview ? new Set() : await loadDone();
     running = true; doneThisRun.clear();
     $('jev-start').disabled = true; $('jev-stop').disabled = false;
-    let handled = 0;
+    let handled = 0, failed = 0, failStreak = 0, page = 1, idleReloads = 0, advancedPastSorted = false;
+    const query = scope.query ? scope.query + ' ' + T.unsortedQuery(tax) : null;
     try {
       while (running) {
-        if (scope.query) {
-          status('Loading ' + scope.name + '…');
-          await UI.settle(2000);                              // let Gmail save before reloading the list
-          UI.goToSearch(scope.query + ' ' + T.unsortedQuery(tax));
+        if (query) {
+          status(`Loading ${scope.name}${page > 1 ? ', page ' + page : ''}… (${handled} sorted so far)`);
+          await UI.settle(1500);                              // let Gmail save before reloading the list
+          UI.goToSearch(query, page);
           const state = await UI.waitForList();
-          if (state === 'empty') { status(`All done: nothing left to sort in ${scope.name}. (${handled} this run)`); break; }
-          if (!state) throw new Error('Gmail list did not load.');
+          if (!state) throw new Error('Gmail list did not load. Check your connection and press Start again.');
+          if (state === 'empty') {
+            // Nothing past the sorted/skipped emails on the previous page: we're finished.
+            if (page > 1 && !advancedPastSorted) { page = 1; continue; }   // pages shifted: re-check page 1
+            status(`All done: nothing left to sort in ${scope.name}. ${handled} sorted this run${failed ? `, ${failed} skipped (they'll be retried next time)` : ''}.`);
+            break;
+          }
         }
-        const rows = UI.listRows().map(UI.readRow).filter(r => !doneThisRun.has(r.id));
+        const visible = UI.listRows().map(UI.readRow);
+        const rows = visible.filter(r => !doneThisRun.has(r.id) && !done.has(r.id));
         if (!rows.length) {
-          status(`Finished this page. ${handled} sorted this run.`);
-          break;
+          if (!query) { status(`Done. ${handled} emails.`); break; }
+          // Everything on screen is already sorted: either Gmail's search hasn't caught up yet,
+          // or the remaining unsorted mail is on a later page.
+          if (idleReloads < 2) { idleReloads++; status('Waiting for Gmail to catch up…'); await UI.sleep(4000); continue; }
+          idleReloads = 0; page++; advancedPastSorted = true;
+          if (page > 200) { status(`Stopped after 200 pages. ${handled} sorted.`); break; }
+          continue;
         }
-        const before = handled;
+        idleReloads = 0; advancedPastSorted = false;
         for (const r of rows) {
           if (!running) break;
           status(`(${handled + 1}) ${r.subject.slice(0, 60)}`);
           try {
             await handle(r, opts);
+            failStreak = 0;
           } catch (e) {
-            if (!UI.dismissGmailError() && !/not showing|not visible|did not open|Lost track/.test(e.message)) throw e;
-            status('Gmail hiccuped, waiting 8 s and retrying this email…');
-            await UI.sleep(8000);
-            const again = UI.findRowById(r.id);
-            if (again) { for (const cb of UI.listRows()) await UI.setSelected(cb, false).catch(() => {}); await handle(r, opts); }
+            // One bad email shouldn't end the run: dismiss Gmail's error, clear the selection, move on.
+            UI.dismissGmailError();
+            for (const row of UI.listRows()) await UI.setSelected(row, false).catch(() => {});
+            failed++; failStreak++;
+            logSkip(r, e.message);
+            if (failStreak >= 5) throw new Error('5 emails in a row failed. Last error: ' + e.message);
+            await UI.sleep(3000);
           }
           doneThisRun.add(r.id);
-          handled++;
+          if (failStreak === 0 && !opts.preview) { done.add(r.id); if (handled % 10 === 0) await saveDone(done); }
+          if (failStreak === 0) handled++;
           if (opts.preview && handled >= 10) { running = false; status('Preview of 10 done. Untick "Preview only" to label.'); }
-          if (!(await UI.settle(1500))) { status('Gmail showed an error; pausing 10 s…'); await UI.sleep(10000); }
+          if (!(await UI.settle(1200))) { status('Gmail showed an error; pausing 10 s…'); await UI.sleep(10000); }
         }
-        if (!scope.query || opts.preview) { if (running) status(`Done. ${handled} emails.`); break; }
-        if (handled === before) break;         // safety: nothing got done on this page
+        if (!query || opts.preview) { if (running) status(`Done. ${handled} emails.`); break; }
       }
+      if (!running && !/All done|Preview/.test($('jev-status').textContent)) status(`Paused. ${handled} sorted this run. Press Start to continue where it left off.`);
     } catch (e) {
-      status('Stopped: ' + e.message, true);
+      status('Stopped: ' + e.message + ` (${handled} sorted). Press Start to continue.`, true);
     } finally {
+      if (!opts.preview) await saveDone(done);
       running = false;
       $('jev-start').disabled = false; $('jev-stop').disabled = true;
     }
+  }
+
+  function logSkip(r, msg) {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="jev-subj">${esc(r.subject)}</span><span class="jev-chip jev-u" title="${esc(msg)}">skipped: ${esc(msg.slice(0, 60))}</span>`;
+    $('jev-log').prepend(li);
   }
 
   // ---------- Learn my inbox: suggest sender rules for THIS user ----------
@@ -260,7 +296,8 @@
       for (const r of rows) {
         if (!running) break;
         status(`Learning ${results.length + 1}/${rows.length}: ${r.subject.slice(0, 50)}`);
-        results.push({ r, res: await askJev(r, '') });
+        try { results.push({ r, res: await askJev(r, '') }); }
+        catch (e) { if (/API key/.test(e.message)) throw e; }   // one odd email shouldn't stop learning
       }
       suggestions = suggest(results);
       renderSuggestions();

@@ -28,6 +28,7 @@ function fakeJev(text) {
       is_personal: { noul: personal },
     },
   });
+  if (/BROKEN/.test(text)) return null;                    // simulates a Jev error for one email
   if (/conference|permission slip/i.test(text)) return answer('reply', 'kids', 3.2, false, 0.95);
   if (/70% off/i.test(text)) return answer('low', 'shopping', 0);
   if (/payment is due/i.test(text)) return answer('action', 'finance', 3.1);
@@ -46,10 +47,11 @@ const ctx = await chromium.launchPersistentContext(profile, {
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 try {
-  await ctx.route('https://api.typesafe.ai/**', route => route.fulfill({
-    status: 200, contentType: 'application/json',
-    body: JSON.stringify(fakeJev(JSON.parse(route.request().postData()).state)),
-  }));
+  await ctx.route('https://api.typesafe.ai/**', route => {
+    const a = fakeJev(JSON.parse(route.request().postData()).state);
+    return a ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(a) })
+             : route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"test failure"}' });
+  });
   await ctx.route('https://mail.google.com/**', route => route.fulfill({ status: 200, contentType: 'text/html', body: MOCK }));
 
   const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker', { timeout: 15000 });
@@ -74,7 +76,7 @@ try {
   await page.click('#jev-diag');
   await page.waitForFunction(() => /Labels button/.test(document.querySelector('#jev-status').textContent), null, { timeout: 10000 });
   const check = await page.textContent('#jev-status');
-  expect(/rows seen: 9/.test(check) && /checkbox: yes/.test(check) && /Labels button: yes/.test(check), 'Check sees rows, checkbox and Labels button');
+  expect(/rows seen: 12/.test(check) && /checkbox: yes/.test(check) && /Labels button: yes/.test(check), 'Check sees rows, checkbox and Labels button');
   await shot(page, '02-check.png');
 
   // Learn my inbox
@@ -87,23 +89,39 @@ try {
   await shot(page, '03-learn.png');
   await page.click('#jev-save-rules');
 
-  // Sort the inbox
-  await page.selectOption('#jev-scope', 'inbox');
+  // Sort all mail, 5 rows per page and a lagging search index, to exercise paging and resume.
+  await page.goto('https://mail.google.com/mail/u/0/?existing=Jev/5-Low,Topic/Shopping&pagesize=5&lag=1#inbox');
+  await page.waitForSelector('#jev-pill');
+  await page.click('#jev-pill');
+  expect(await page.$eval('#jev-scope', s => s.value) === 'all', 'All mail is the default scope');
   await page.click('#jev-start');
   await page.waitForTimeout(4000);
   await shot(page, '04-running.png');
-  await page.waitForFunction(() => !document.querySelector('#jev-start').disabled, null, { timeout: 240000 });
+  const ticker = process.env.DEBUG ? setInterval(async () => console.log('  …', await page.textContent('#jev-status').catch(() => '')), 5000) : null;
+  await page.waitForFunction(() => !document.querySelector('#jev-start').disabled, null, { timeout: 480000 });
+  if (ticker) clearInterval(ticker);
   const status = await page.textContent('#jev-status');
   const applied = await page.evaluate(() => window.__applied);
   const archived = await page.evaluate(() => window.__archived);
   expect(/All done/.test(status), 'run finishes: ' + status);
+  expect(/1 skipped/.test(status), 'a failing email is skipped, not fatal');
+  const log = (await page.$$eval('#jev-log li', els => els.map(e => e.innerText))).join(' | ');
+  expect(/skipped/.test(log), 'skipped email shown in the log');
   expect((applied.t1 || []).includes('Jev/1-Reply') && applied.t1.includes('Jev/0-Must-See'), 'teacher email → Reply + Must see');
   expect((applied.t3 || []).includes('Jev/2-Action') && applied.t3.includes('Jev/Urgent'), 'payment due → Action + Urgent');
   expect(['t2', 't7', 't8'].every(id => archived.includes(id)), 'store emails archived (aggressive ignore)');
   expect((applied.t4 || []).includes('Jev/Review'), 'unsure answer → Review');
-  expect(Object.keys(applied).length === 9, 'all 9 emails labelled');
+  expect(Object.keys(applied).length === 11, 'all 11 good emails labelled across pages: ' + Object.keys(applied).length);
+
   await shot(page, '05-done.png');
   if (SHOTS) await page.locator('#jev-panel').screenshot({ path: path.join(SHOTS, '05b-panel.png') });
+
+  // Second run: nothing should be re-done.
+  const before = JSON.stringify(await page.evaluate(() => window.__applied));
+  await page.click('#jev-start');
+  await page.waitForFunction(() => !document.querySelector('#jev-start').disabled, null, { timeout: 120000 });
+  const again = JSON.stringify(await page.evaluate(() => window.__applied));
+  expect(before === again, 'second Start re-labels nothing (already sorted are skipped)');
 
   const pop = await ctx.newPage();
   await pop.setViewportSize({ width: 320, height: 260 });

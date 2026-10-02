@@ -305,11 +305,11 @@
     await settle(1500);
   }
 
-  function goToSearch(query) {
+  function goToSearch(query, page = 1) {
     // A harmless alternating term forces Gmail to re-run the search (so labelled threads drop out).
     root.__jevFlip = !root.__jevFlip;
     const q = query + (root.__jevFlip ? ' -in:chats' : ' -in:spam');
-    location.hash = '#search/' + encodeURIComponent(q).replace(/%20/g, '+');
+    location.hash = '#search/' + encodeURIComponent(q).replace(/%20/g, '+') + (page > 1 ? '/p' + page : '');
   }
 
   async function waitForList() {

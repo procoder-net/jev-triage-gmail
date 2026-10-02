@@ -53,7 +53,12 @@ Choose how many recent emails to look at and click **Learn my inbox**. Jev class
 
 ### 5. Sort
 
-Pick **Inbox** or **All mail** and click **Start**. Keep the tab open; it works through the list and reloads it until nothing is left. **Pause** stops after the current email.
+Leave **All mail** selected and click **Start**. Keep the tab open (and visible, so Chrome doesn't slow it down).
+
+- **Why the address bar changes:** Start opens a Gmail search for emails that don't have a `Jev/` action label yet (`-label:jev-1-reply -label:jev-2-action …`). That search is how it skips anything already sorted, by this extension or by your imported filters.
+- **It keeps going on its own:** it works through the list, reloads it, waits if Gmail's search is a few seconds behind, and moves to later pages until nothing unsorted is left.
+- **One bad email doesn't stop it:** if an email fails (Gmail hiccup, Jev error) it's skipped, shown in red in the panel, and retried on the next Start. It only stops if 5 in a row fail.
+- **Pause and Start again any time:** it remembers what it already sorted and carries on.
 
 ![Sorting in progress](docs/images/04-running.png)
 

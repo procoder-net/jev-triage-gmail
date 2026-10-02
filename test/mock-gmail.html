@@ -13,6 +13,8 @@
     • searching for "not yet sorted" mail hides a row as soon as it gets an action label (Jev/1-…6-)
   URL options:  ?oops=N  shows Gmail's "Oops, something went wrong" on the Nth label change
                 ?existing=Label1,Label2  labels that already exist
+                ?pagesize=N  rows per page (Gmail shows 50); "#search/…/p2" opens page 2
+                ?lag=N  sorted emails keep showing in "not yet sorted" for N more reloads (search index lag)
   If Gmail changes and the extension breaks, update this file to match the new page, then fix SEL.
 -->
 <style>
@@ -55,10 +57,16 @@ const MAIL = [
   { id: 't7', from: ['ShopMart', 'offers@news.shopmart.example'], subject: 'Flash sale 70% off', snippet: 'Ends tonight' },
   { id: 't8', from: ['ShopMart', 'deals@shopmart.example'], subject: 'Weekend 70% off picks', snippet: 'Just for you' },
   { id: 't9', from: ['Ms. Rivera', 'teacher@school.example'], subject: 'Field trip permission slip conference', snippet: 'Please sign by Monday' },
+  { id: 't10', from: ['Odd Sender', 'x@broken.example'], subject: 'BROKEN email the classifier rejects', snippet: 'test of a failure' },
+  { id: 't11', from: ['Parcel Co', 'track@parcel.example'], subject: 'Out for delivery today', snippet: 'Arriving by 8pm' },
+  { id: 't12', from: ['AI Digest', 'hello@aidigest.example'], subject: 'Agents part 2', snippet: 'More on agents' },
 ];
 const params = new URLSearchParams(location.search);
 const EXISTING = new Set((params.get('existing') || 'Jev/5-Low,Topic/Shopping').split(',').filter(Boolean));
 const OOPS_AT = Number(params.get('oops') || 0);
+const PAGE_SIZE = Number(params.get('pagesize') || 50);
+const LAG = Number(params.get('lag') || 0);
+let reloads = 0; const sortedAt = {};
 const applied = {}; window.__applied = applied; window.__created = []; window.__archived = [];
 let labelChanges = 0;
 
@@ -67,7 +75,11 @@ const unsortedOnly = () => decodeURIComponent(location.hash).includes('-label:je
 
 function render() {
   const tb = document.getElementById('tb'); tb.innerHTML = '';
-  const list = MAIL.filter(m => !window.__archived.includes(m.id) && !(unsortedOnly() && (applied[m.id] || []).some(isAction)));
+  reloads++;
+  const hidden = id => (applied[id] || []).some(isAction) && sortedAt[id] !== undefined && reloads - sortedAt[id] > LAG;
+  const all = MAIL.filter(m => !window.__archived.includes(m.id) && !(unsortedOnly() && hidden(m.id)));
+  const pageNo = Number((location.hash.match(/\/p(\d+)$/) || [])[1] || 1);
+  const list = all.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
   document.getElementById('empty').textContent = list.length ? '' : 'No messages matched your search.';
   for (const m of list) {
     const tr = document.createElement('tr'); tr.className = 'zA zE';
@@ -105,8 +117,9 @@ function addLabel(name, { archive = false } = {}) {
   if (OOPS_AT && labelChanges === OOPS_AT) { oops(); return; }
   for (const id of selected()) {
     (applied[id] = applied[id] || []).push(name);
+    if (isAction(name) && sortedAt[id] === undefined) sortedAt[id] = reloads;
     if (archive) window.__archived.push(id);
-    if (archive || (isAction(name) && unsortedOnly())) document.querySelector(`[data-legacy-thread-id="${id}"]`).closest('tr').remove();
+    if (archive || (isAction(name) && unsortedOnly() && !LAG)) document.querySelector(`[data-legacy-thread-id="${id}"]`).closest('tr').remove();
   }
   syncButtons();
 }
