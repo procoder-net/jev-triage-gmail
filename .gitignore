@@ -1,0 +1,7 @@
+node_modules/
+*.zip
+.DS_Store
+# Never commit personal settings exports or keys
+jev-triage-settings*.json
+*.key
+.env

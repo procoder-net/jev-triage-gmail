@@ -1,0 +1,204 @@
+{
+  "jevTriageSettings": 1,
+  "_readme": "Example Jev Triage settings for a fictional person. Import in Options \u2192 Import settings, then edit: rename labels, rewrite descriptions, swap the example senders for your own. Every domain below is made up (.example) \u2014 replace it or delete the rule.",
+  "taxonomy": {
+    "urgentLabel": "Jev/Urgent",
+    "reviewLabel": "Jev/Review",
+    "mustSeeLabel": "Jev/0-Must-See",
+    "ignoreActions": [
+      "low",
+      "junk"
+    ],
+    "archiveIgnored": true,
+    "actions": [
+      {
+        "key": "reply",
+        "label": "Jev/1-Reply",
+        "desc": "A real person wrote to me personally and is waiting for my answer: family, friends, my manager, a client, a landlord, a doctor's office."
+      },
+      {
+        "key": "action",
+        "label": "Jev/2-Action",
+        "desc": "No reply needed but I must do something: pay a bill, sign a document, RSVP, renew something, confirm an appointment, verify an account change I did not make."
+      },
+      {
+        "key": "read",
+        "label": "Jev/3-Read",
+        "desc": "Newsletters and articles I chose to subscribe to and like reading on the weekend."
+      },
+      {
+        "key": "fyi",
+        "label": "Jev/4-FYI",
+        "desc": "Receipts, shipping updates, booking confirmations, one-time codes, statements with nothing due, routine notifications."
+      },
+      {
+        "key": "low",
+        "label": "Jev/5-Low",
+        "desc": "Sales, coupons, 'we miss you' emails, product launches, webinars, surveys, social media notifications, cold sales pitches."
+      },
+      {
+        "key": "junk",
+        "label": "Jev/6-Junk",
+        "desc": "Scams, phishing, fake invoices, prize or crypto offers, anything asking for passwords or payment out of the blue."
+      }
+    ],
+    "topics": [
+      {
+        "key": "family",
+        "label": "Topic/Family",
+        "desc": "Partner, parents, siblings, relatives, family plans."
+      },
+      {
+        "key": "work",
+        "label": "Topic/Work",
+        "desc": "My job: colleagues, clients, projects, HR, payroll, expense reports."
+      },
+      {
+        "key": "side",
+        "label": "Topic/Side-Project",
+        "desc": "My small online shop: customer questions, orders from customers, payouts, supplier emails."
+      },
+      {
+        "key": "money",
+        "label": "Topic/Money",
+        "desc": "Bank, credit cards, bills, rent, taxes, insurance, investments."
+      },
+      {
+        "key": "home",
+        "label": "Topic/Home",
+        "desc": "Apartment, landlord, utilities, internet, repairs, deliveries to the house."
+      },
+      {
+        "key": "travel",
+        "label": "Topic/Travel",
+        "desc": "Flights, hotels, car rentals, trip itineraries, visas, loyalty programs."
+      },
+      {
+        "key": "health",
+        "label": "Topic/Health",
+        "desc": "Doctors, dentist, pharmacy, insurance claims, gym, fitness apps."
+      },
+      {
+        "key": "learning",
+        "label": "Topic/Learning",
+        "desc": "Online courses, certifications, books, podcasts and newsletters I learn from."
+      },
+      {
+        "key": "subs",
+        "label": "Topic/Subscriptions",
+        "desc": "Streaming, apps and software I pay for: renewals, price changes, trial endings."
+      },
+      {
+        "key": "shopping",
+        "label": "Topic/Shopping",
+        "desc": "Stores and brands, my own orders, deliveries and returns."
+      },
+      {
+        "key": "security",
+        "label": "Topic/Security",
+        "desc": "Sign-in alerts, password resets, two-factor codes, new device notices."
+      },
+      {
+        "key": "other",
+        "label": "Topic/Other",
+        "desc": "Anything that fits none of the above."
+      }
+    ],
+    "rules": [
+      {
+        "match": "boss@acme-corp.example",
+        "topic": "work",
+        "mustSee": true,
+        "_why": "Must see: always surface my manager, Jev picks the action"
+      },
+      {
+        "match": "acme-corp.example",
+        "topic": "work",
+        "_why": "Topic only: everything from my company is Work, Jev decides reply/action/FYI"
+      },
+      {
+        "match": "mom.example@mailbox.example",
+        "topic": "family",
+        "mustSee": true,
+        "_why": "Must see: a person who should never get buried"
+      },
+      {
+        "match": "cityclinic.example",
+        "topic": "health",
+        "mustSee": true,
+        "_why": "Must see: appointment changes matter"
+      },
+      {
+        "match": "mybank.example",
+        "topic": "money",
+        "_why": "Topic only: statements are FYI, a missed payment becomes Action"
+      },
+      {
+        "match": "landlord@homes.example",
+        "topic": "home",
+        "mustSee": true,
+        "_why": "Must see"
+      },
+      {
+        "match": "shopifyish.example",
+        "topic": "side",
+        "action": "action",
+        "_why": "Fixed action: new customer orders always need handling"
+      },
+      {
+        "match": "airline.example",
+        "topic": "travel",
+        "_why": "Topic only: booking = FYI, gate change = Urgent"
+      },
+      {
+        "match": "weekly-ai-letter.example",
+        "topic": "learning",
+        "action": "read",
+        "_why": "Read later: archived, kept unread"
+      },
+      {
+        "match": "streamflix.example",
+        "topic": "subs",
+        "_why": "Topic only: renewal notices may need Action"
+      },
+      {
+        "match": "megastore.example",
+        "topic": "shopping",
+        "action": "low",
+        "_why": "Ignore: sales emails go out of the inbox, marked read"
+      },
+      {
+        "match": "deals.fashionhub.example",
+        "topic": "shopping",
+        "action": "low",
+        "_why": "Ignore"
+      },
+      {
+        "match": "socialapp.example",
+        "topic": "other",
+        "action": "low",
+        "_why": "Ignore: 'someone liked your post'"
+      },
+      {
+        "match": "webinar-hub.example",
+        "topic": "learning",
+        "action": "low",
+        "_why": "Ignore: webinar invitations"
+      },
+      {
+        "match": "accounts.bigtech.example",
+        "topic": "security",
+        "action": "fyi",
+        "_why": "Fixed FYI: routine codes. Unexpected alerts from other senders still go to Jev"
+      }
+    ]
+  },
+  "_ideas_to_enhance": [
+    "Add a topic for something only you have: 'Topic/Volunteering', 'Topic/Wedding-2027', 'Topic/House-Hunt'.",
+    "Make descriptions concrete: list the kinds of senders and subjects you get, Jev reads them word for word.",
+    "Split an action if you need it: 'Jev/2-Pay' for bills and 'Jev/2-Sign' for documents.",
+    "Use a full address for people (mustSee) and a domain for companies (topic or action).",
+    "After a week, run Learn my inbox again: it only suggests senders that don't have a rule yet.",
+    "Turn off aggressive ignore in Options if you'd rather keep Low mail in the inbox, just labelled."
+  ]
+}

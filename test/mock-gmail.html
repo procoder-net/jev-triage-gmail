@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Inbox - demo.user@example.com - Mock Mail</title>
+<!--
+  A tiny stand-in for the Gmail web page, used by test/e2e.mjs.
+  It copies only the parts of Gmail the extension touches (see extension/gmail-ui.js → SEL):
+    • rows: tr.zA with a role=checkbox, span[email], .bog (subject), .y2 (snippet), [data-legacy-thread-id]
+    • a "Labels" button and a "Move to" button that only show while a row is ticked
+    • a role=menu with a search input; nested labels are listed by their last part ("Kids" for "Topic/Kids")
+    • "Create new" → a dialog with a Create button
+    • searching for "not yet sorted" mail hides a row as soon as it gets an action label (Jev/1-…6-)
+  URL options:  ?oops=N  shows Gmail's "Oops, something went wrong" on the Nth label change
+                ?existing=Label1,Label2  labels that already exist
+  If Gmail changes and the extension breaks, update this file to match the new page, then fix SEL.
+-->
+<style>
+  body { margin: 0; background: #f6f8fc; font: 14px system-ui, sans-serif; color: #202124; }
+  header { padding: 12px 16px; font-weight: 600; color: #5f6368; }
+  .toolbar { height: 36px; padding: 0 12px; display: flex; gap: 8px; align-items: center; }
+  .toolbar [role=button] { padding: 6px 10px; border: 1px solid #dadce0; border-radius: 6px; background: #fff; cursor: pointer; }
+  div[role=main] { background: #fff; margin: 0 12px; border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  tr.zA td { padding: 9px 8px; border-bottom: 1px solid #f1f3f4; white-space: nowrap; }
+  tr.zE { font-weight: 600; }
+  .y2 { color: #5f6368; font-weight: 400; }
+  div[role=checkbox] { width: 14px; height: 14px; border: 2px solid #5f6368; border-radius: 2px; display: inline-block; vertical-align: middle; cursor: pointer; }
+  div[role=checkbox][aria-checked=true] { background: #1a73e8; border-color: #1a73e8; }
+  div[role=menu] { position: absolute; top: 84px; left: 120px; background: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.2); padding: 8px; width: 260px; z-index: 10; }
+  div[role=menu] input { width: 100%; box-sizing: border-box; padding: 6px; margin-bottom: 6px; }
+  [role=menuitemcheckbox], [role=menuitem] { padding: 5px 8px; cursor: pointer; border-radius: 4px; }
+  [role=menuitemcheckbox]:hover, [role=menuitem]:hover { background: #f1f3f4; }
+  [role=menuitemcheckbox][aria-checked=true]::before { content: "☑ "; }
+  [role=menuitemcheckbox][aria-checked=false]::before { content: "☐ "; }
+  div[role=dialog], div[role=alertdialog] { position: fixed; top: 160px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.3); padding: 20px; z-index: 20; }
+  #empty { padding: 24px; color: #5f6368; }
+</style>
+</head>
+<body>
+<header>Mock Mail (test page, not Gmail)</header>
+<div class="toolbar">
+  <div role="button" aria-label="Move to" id="mv">Move to</div>
+  <div role="button" aria-label="Labels" id="lb">Labels</div>
+</div>
+<div role="main"><table><tbody id="tb"></tbody></table><div id="empty"></div></div>
+<script>
+const MAIL = [
+  { id: 't1', from: ['Ms. Rivera', 'teacher@school.example'], subject: 'Parent-teacher conference: pick a slot', snippet: 'Can you choose a time before Friday?' },
+  { id: 't2', from: ['ShopMart', 'deals@shopmart.example'], subject: 'Up to 70% off this weekend', snippet: 'Clearance on everything' },
+  { id: 't3', from: ['City Bank', 'alerts@citybank.example'], subject: 'Your card payment is due tomorrow', snippet: 'Minimum payment due' },
+  { id: 't4', from: ['Market Weekly', 'news@marketweekly.example'], subject: 'Tech earnings preview', snippet: 'What to watch this week' },
+  { id: 't5', from: ['AI Digest', 'hello@aidigest.example'], subject: 'Agents, clearly explained', snippet: 'This week in AI' },
+  { id: 't6', from: ['Parcel Co', 'track@parcel.example'], subject: 'Delivered: 1 package', snippet: 'Left at front door' },
+  { id: 't7', from: ['ShopMart', 'offers@news.shopmart.example'], subject: 'Flash sale 70% off', snippet: 'Ends tonight' },
+  { id: 't8', from: ['ShopMart', 'deals@shopmart.example'], subject: 'Weekend 70% off picks', snippet: 'Just for you' },
+  { id: 't9', from: ['Ms. Rivera', 'teacher@school.example'], subject: 'Field trip permission slip conference', snippet: 'Please sign by Monday' },
+];
+const params = new URLSearchParams(location.search);
+const EXISTING = new Set((params.get('existing') || 'Jev/5-Low,Topic/Shopping').split(',').filter(Boolean));
+const OOPS_AT = Number(params.get('oops') || 0);
+const applied = {}; window.__applied = applied; window.__created = []; window.__archived = [];
+let labelChanges = 0;
+
+const isAction = n => /^Jev\/[1-6]-/.test(n);
+const unsortedOnly = () => decodeURIComponent(location.hash).includes('-label:jev-1-reply');
+
+function render() {
+  const tb = document.getElementById('tb'); tb.innerHTML = '';
+  const list = MAIL.filter(m => !window.__archived.includes(m.id) && !(unsortedOnly() && (applied[m.id] || []).some(isAction)));
+  document.getElementById('empty').textContent = list.length ? '' : 'No messages matched your search.';
+  for (const m of list) {
+    const tr = document.createElement('tr'); tr.className = 'zA zE';
+    tr.innerHTML = `<td><div role="checkbox" aria-checked="false"></div></td>
+      <td><span email="${m.from[1]}" name="${m.from[0]}">${m.from[0]}</span></td>
+      <td><span data-legacy-thread-id="${m.id}"><span class="bog">${m.subject}</span><span class="y2"> - ${m.snippet}</span></span></td>
+      <td class="xW"><span title="Mon, Sep 28">Sep 28</span></td>`;
+    tr.querySelector('[role=checkbox]').addEventListener('click', e => {
+      const c = e.currentTarget; c.setAttribute('aria-checked', c.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); syncButtons();
+    });
+    tb.append(tr);
+  }
+  syncButtons();
+}
+window.addEventListener('hashchange', () => setTimeout(render, 200));
+
+const selected = () => [...document.querySelectorAll('tr.zA')]
+  .filter(r => r.querySelector('[role=checkbox]').getAttribute('aria-checked') === 'true')
+  .map(r => r.querySelector('[data-legacy-thread-id]').getAttribute('data-legacy-thread-id'));
+
+function syncButtons() {
+  const show = selected().length ? 'inline-block' : 'none';
+  document.getElementById('lb').style.display = show;
+  document.getElementById('mv').style.display = show;
+}
+
+function oops() {
+  const d = document.createElement('div'); d.setAttribute('role', 'alertdialog');
+  d.innerHTML = '<b>Oops, something went wrong</b><p>Recent changes may not have been saved.</p><button>OK</button>';
+  d.querySelector('button').onclick = () => d.remove(); document.body.append(d);
+}
+
+function addLabel(name, { archive = false } = {}) {
+  labelChanges++;
+  if (OOPS_AT && labelChanges === OOPS_AT) { oops(); return; }
+  for (const id of selected()) {
+    (applied[id] = applied[id] || []).push(name);
+    if (archive) window.__archived.push(id);
+    if (archive || (isAction(name) && unsortedOnly())) document.querySelector(`[data-legacy-thread-id="${id}"]`).closest('tr').remove();
+  }
+  syncButtons();
+}
+
+function openMenu(kind) {
+  const open = document.querySelector('div[role=menu]'); if (open) { open.remove(); return; }
+  const menu = document.createElement('div'); menu.setAttribute('role', 'menu');
+  menu.innerHTML = '<input placeholder="Label as:"><div class="items"></div>'; document.body.append(menu);
+  const input = menu.querySelector('input'), ticked = new Set();
+  const draw = () => {
+    const q = input.value.toLowerCase(), items = menu.querySelector('.items'); items.innerHTML = '';
+    const names = [...EXISTING].filter(n => n.toLowerCase().includes(q));
+    for (const n of names) {
+      const d = document.createElement('div');
+      d.setAttribute('role', kind === 'labels' ? 'menuitemcheckbox' : 'menuitem');
+      d.textContent = n.split('/').pop();                         // Gmail shows nested labels by their last part
+      if (kind === 'labels') {
+        d.setAttribute('aria-checked', ticked.has(n) ? 'true' : 'false');
+        d.onclick = () => { ticked.has(n) ? ticked.delete(n) : ticked.add(n); draw(); };
+      } else {
+        d.onclick = () => { addLabel(n, { archive: true }); menu.remove(); };
+      }
+      items.append(d);
+    }
+    if (q && !names.length) {
+      const c = document.createElement('div'); c.setAttribute('role', 'menuitem'); c.textContent = `"${input.value}" (create new)`;
+      c.onclick = () => {
+        const name = input.value; menu.remove();
+        const dlg = document.createElement('div'); dlg.setAttribute('role', 'dialog');
+        dlg.innerHTML = `New label<br><input value="${name}"><br><button>Cancel</button> <button>Create</button>`;
+        document.body.append(dlg);
+        dlg.querySelectorAll('button')[0].onclick = () => dlg.remove();
+        dlg.querySelectorAll('button')[1].onclick = () => {
+          EXISTING.add(name); window.__created.push(name); addLabel(name, { archive: kind === 'move' }); dlg.remove();
+        };
+      };
+      items.append(c);
+    }
+    if (kind === 'labels' && ticked.size) {
+      const a = document.createElement('div'); a.setAttribute('role', 'menuitem'); a.textContent = 'Apply';
+      a.onclick = () => { ticked.forEach(n => addLabel(n)); menu.remove(); }; items.append(a);
+    }
+  };
+  input.addEventListener('input', draw);
+  input.addEventListener('keydown', e => { if (e.key === 'Escape') menu.remove(); });
+  draw();
+}
+document.getElementById('lb').onclick = () => openMenu('labels');
+document.getElementById('mv').onclick = () => openMenu('move');
+render();
+</script>
+</body>
+</html>

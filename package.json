@@ -1,0 +1,16 @@
+{
+  "name": "jev-triage-gmail",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Chrome extension that sorts Gmail inside the open tab using Jev (TypeSafe AI) and Gmail labels.",
+  "type": "module",
+  "scripts": {
+    "test": "node test/unit.mjs && node test/e2e.mjs",
+    "test:unit": "node test/unit.mjs",
+    "screenshots": "node test/e2e.mjs --screenshots",
+    "zip": "cd extension && zip -qr ../jev-triage-gmail.zip . && echo 'jev-triage-gmail.zip ready for the Chrome Web Store'"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

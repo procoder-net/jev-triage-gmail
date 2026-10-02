@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Jev Triage</title>
+<style>
+  body { width: 300px; margin: 0; padding: 14px; font: 13px/1.45 system-ui, -apple-system, sans-serif; color: #1f2937; }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  p { margin: 6px 0; color: #4b5563; }
+  button { width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; font: inherit; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  #key { font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1>Jev Triage</h1>
+  <p>Jev key: <span id="key">checking…</span></p>
+  <p>Open Gmail and click the blue <b>Jev</b> button in the bottom-right corner.</p>
+  <button id="gmail" class="primary">Open Gmail</button>
+  <button id="opts">Options (Jev key)</button>
+  <script src="popup.js"></script>
+</body>
+</html>

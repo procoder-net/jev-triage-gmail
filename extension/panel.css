@@ -1,0 +1,44 @@
+#jev-pill {
+  position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
+  width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer;
+  background: #2563eb; color: #fff; font: 600 14px system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+}
+#jev-panel {
+  position: fixed; right: 20px; bottom: 80px; z-index: 2147483000;
+  width: 360px; max-height: 70vh; display: flex; flex-direction: column;
+  background: #fff; color: #1f2937; border: 1px solid #e5e7eb; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2); font: 13px/1.4 system-ui, -apple-system, sans-serif;
+}
+#jev-panel[hidden] { display: none; }
+#jev-panel .jev-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+#jev-panel .jev-head span { color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#jev-panel .jev-head button { margin-left: auto; border: 0; background: none; cursor: pointer; color: #6b7280; font-size: 14px; }
+#jev-panel .jev-body { padding: 10px 12px; overflow: auto; }
+#jev-panel label { display: block; margin: 0 0 8px; }
+#jev-panel select { margin-left: 6px; padding: 3px 6px; font: inherit; }
+#jev-panel .jev-check { display: flex; gap: 6px; align-items: flex-start; }
+#jev-panel .jev-check input { margin-top: 3px; }
+#jev-panel .jev-row { display: flex; gap: 8px; margin: 8px 0; }
+#jev-panel .jev-row button { flex: 1; padding: 7px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; font: inherit; color: inherit; }
+#jev-panel .jev-row button.jev-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+#jev-panel .jev-row button:disabled { opacity: .5; cursor: default; }
+#jev-status { margin: 4px 0; color: #374151; }
+#jev-status.jev-err { color: #b91c1c; }
+#jev-counts { color: #6b7280; font-size: 12px; margin-bottom: 6px; }
+#jev-log { list-style: none; margin: 0; padding: 0; }
+#jev-log li { padding: 6px 0; border-top: 1px solid #f3f4f6; }
+#jev-log .jev-subj { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#jev-log .jev-chip { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 2px 4px 0 0; border-radius: 10px; background: #eef2ff; color: #3730a3; }
+#jev-log .jev-chip.jev-u { background: #fee2e2; color: #991b1b; }
+#jev-log .jev-chip.jev-dim { background: #f3f4f6; color: #6b7280; }
+#jev-log .jev-chip.jev-must { background: #fef3c7; color: #92400e; font-weight: 600; }
+#jev-panel .jev-row select { flex: 0 0 auto; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db; font: inherit; }
+#jev-learned { border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px; }
+#jev-learned .jev-learn-head span { color: #6b7280; font-size: 12px; }
+#jev-sugg { list-style: none; padding: 0; margin: 6px 0; max-height: 220px; overflow: auto; }
+#jev-sugg li { padding: 5px 0; border-top: 1px solid #f3f4f6; }
+#jev-sugg .jev-chip { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 2px 4px 0 0; border-radius: 10px; background: #eef2ff; color: #3730a3; }
+#jev-sugg .jev-chip.jev-must { background: #fef3c7; color: #92400e; font-weight: 600; }
+#jev-sugg .jev-chip.jev-dim { background: #f3f4f6; color: #6b7280; }
+.jev-dim-t { color: #6b7280; font-size: 12px; }
